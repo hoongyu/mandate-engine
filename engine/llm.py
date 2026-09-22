@@ -60,7 +60,9 @@ class LiteLLMClient:
         os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
         import litellm  # heavy import; only pay for it when a real model is used
 
-        response: Any = litellm.completion(model=self.model, messages=messages, tools=tools or None, **self.options)
+        response: Any = litellm.completion(
+            model=self.model, messages=messages, tools=tools or None, **self.options
+        )
         message = response.choices[0].message
         calls = tuple(
             ToolCall(c.id, c.function.name, parse_arguments(c.function.arguments))

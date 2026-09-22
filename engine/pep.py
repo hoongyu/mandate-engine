@@ -44,7 +44,10 @@ def _reply(status: Status, **fields: Any) -> str:
 
 
 def _describe_labels(labels: dict[str, ProvenanceLabel]) -> dict[str, Any]:
-    return {arg: {"best": lab.best, "seen_in": [s.source for s in lab.sightings]} for arg, lab in labels.items()}
+    return {
+        arg: {"best": lab.best, "seen_in": [s.source for s in lab.sightings]}
+        for arg, lab in labels.items()
+    }
 
 
 class PolicyEnforcementPoint:
@@ -67,7 +70,9 @@ class PolicyEnforcementPoint:
         self._next_id = itertools.count(1)
         for payee in mandate.payees:  # the saved payee registry is trusted by definition
             self.tracker.observe(
-                f"{payee.name} {payee.account}", Trust.MANDATE, f"mandate:{mandate.mandate_id}#{payee.payee_id}"
+                f"{payee.name} {payee.account}",
+                Trust.MANDATE,
+                f"mandate:{mandate.mandate_id}#{payee.payee_id}",
             )
 
     def observe_user(self, text: str, source: str) -> None:
@@ -107,7 +112,9 @@ class PolicyEnforcementPoint:
             return ToolOutcome("denied", _reply("denied", reasons=list(decision.reasons)))
         escalation = Escalation(f"esc-{next(self._next_id)}", name, args, facts, decision, labels)
         self.pending[escalation.escalation_id] = escalation
-        self.audit.append("escalation", {"escalation_id": escalation.escalation_id, "tool": name}, now)
+        self.audit.append(
+            "escalation", {"escalation_id": escalation.escalation_id, "tool": name}, now
+        )
         return ToolOutcome(
             "pending_approval",
             _reply(
@@ -126,24 +133,38 @@ class PolicyEnforcementPoint:
         if decision.effect is Effect.DENY:
             self.audit.append(
                 "approval_refused",
-                {"escalation_id": escalation_id, "approver": approver, "reasons": list(decision.reasons)},
+                {
+                    "escalation_id": escalation_id,
+                    "approver": approver,
+                    "reasons": list(decision.reasons),
+                },
                 now,
             )
             return ToolOutcome("denied", _reply("denied", reasons=list(decision.reasons)))
         self.audit.append("approved", {"escalation_id": escalation_id, "approver": approver}, now)
         return self._execute(
-            self.tools[escalation.tool], escalation.args, now,
-            facts=escalation.facts, decision=decision, approved_by=approver,
+            self.tools[escalation.tool],
+            escalation.args,
+            now,
+            facts=escalation.facts,
+            decision=decision,
+            approved_by=approver,
         )
 
     def reject(self, escalation_id: str, approver: str) -> None:
         self.pending.pop(escalation_id)
-        self.audit.append("rejected_by_human", {"escalation_id": escalation_id, "approver": approver}, self.clock())
+        self.audit.append(
+            "rejected_by_human",
+            {"escalation_id": escalation_id, "approver": approver},
+            self.clock(),
+        )
 
     def revoke(self, by: str) -> None:
         """Kill switch: the mandate stops authorising anything, including pending approvals."""
         self.mandate = self.mandate.model_copy(update={"revoked": True})
-        self.audit.append("mandate_revoked", {"mandate": self._mandate_ref(), "by": by}, self.clock())
+        self.audit.append(
+            "mandate_revoked", {"mandate": self._mandate_ref(), "by": by}, self.clock()
+        )
 
     def _execute(
         self,

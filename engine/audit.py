@@ -28,7 +28,13 @@ def _jsonable(obj: object) -> str:
 
 
 def _digest(seq: int, ts: datetime, kind: str, payload: dict[str, Any], prev_hash: str) -> str:
-    body = {"seq": seq, "ts": ts.isoformat(), "kind": kind, "payload": payload, "prev_hash": prev_hash}
+    body = {
+        "seq": seq,
+        "ts": ts.isoformat(),
+        "kind": kind,
+        "payload": payload,
+        "prev_hash": prev_hash,
+    }
     raw = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
@@ -49,11 +55,17 @@ class AuditLog:
         if ts.tzinfo is None:
             raise ValueError("audit timestamps must be timezone-aware")
         ts = ts.astimezone(UTC)
-        frozen: dict[str, Any] = json.loads(json.dumps(payload, default=_jsonable, ensure_ascii=False))
+        frozen: dict[str, Any] = json.loads(
+            json.dumps(payload, default=_jsonable, ensure_ascii=False)
+        )
         seq = len(self._records)
         prev = self._records[-1].hash if self._records else GENESIS
         record = AuditRecord(
-            seq=seq, ts=ts, kind=kind, payload=frozen, prev_hash=prev,
+            seq=seq,
+            ts=ts,
+            kind=kind,
+            payload=frozen,
+            prev_hash=prev,
             hash=_digest(seq, ts, kind, frozen, prev),
         )
         self._records.append(record)

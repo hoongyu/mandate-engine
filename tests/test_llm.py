@@ -31,9 +31,14 @@ def test_litellm_client_maps_the_openai_shape(monkeypatch: pytest.MonkeyPatch) -
     def fake_completion(**kwargs: Any) -> Any:
         captured.update(kwargs)
         call = SimpleNamespace(
-            id="call_1", function=SimpleNamespace(name="transfer", arguments=json.dumps({"payee_id": "landlord"}))
+            id="call_1",
+            function=SimpleNamespace(
+                name="transfer", arguments=json.dumps({"payee_id": "landlord"})
+            ),
         )
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None, tool_calls=[call]))])
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=None, tool_calls=[call]))]
+        )
 
     monkeypatch.setattr("litellm.completion", fake_completion)
     response = LiteLLMClient("deepseek/deepseek-chat").complete(
@@ -44,12 +49,24 @@ def test_litellm_client_maps_the_openai_shape(monkeypatch: pytest.MonkeyPatch) -
     assert captured["tools"] == [{"type": "function"}]
 
 
-@pytest.mark.skipif(not os.environ.get("AGENT_LIVE_MODEL"), reason="set AGENT_LIVE_MODEL and its API key to run")
+@pytest.mark.skipif(
+    not os.environ.get("AGENT_LIVE_MODEL"), reason="set AGENT_LIVE_MODEL and its API key to run"
+)
 def test_live_model_can_call_a_tool() -> None:
-    tools = [{"type": "function", "function": {
-        "name": "get_balance", "description": "Balance of the user's account.",
-        "parameters": {"type": "object", "properties": {"currency": {"type": "string"}}, "required": []},
-    }}]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_balance",
+                "description": "Balance of the user's account.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"currency": {"type": "string"}},
+                    "required": [],
+                },
+            },
+        }
+    ]
     response = LiteLLMClient(os.environ["AGENT_LIVE_MODEL"]).complete(
         [{"role": "user", "content": "What is my EUR balance? Use the tool."}], tools
     )

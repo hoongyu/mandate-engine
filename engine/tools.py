@@ -27,7 +27,11 @@ class ToolSpec:
     def schema(self) -> dict[str, Any]:
         return {
             "type": "function",
-            "function": {"name": self.name, "description": self.description, "parameters": self.parameters},
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+            },
         }
 
 

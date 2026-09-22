@@ -33,7 +33,12 @@ def make(**overrides: Any) -> Mandate:
 
 def test_amount_conditions_need_exactly_one_currency() -> None:
     with pytest.raises(ValidationError):
-        Clause(clause_id="C1", effect=Effect.ALLOW, actions=frozenset({"transfer"}), max_amount_minor=100)
+        Clause(
+            clause_id="C1",
+            effect=Effect.ALLOW,
+            actions=frozenset({"transfer"}),
+            max_amount_minor=100,
+        )
     with pytest.raises(ValidationError):
         Clause(
             clause_id="C1",
