@@ -69,7 +69,7 @@ class PolicyEnforcementPoint:
         self.tracker = tracker if tracker is not None else ProvenanceTracker()
         self.history = history if history is not None else ActionHistory()
         self.pending: dict[str, Escalation] = {}
-        self.shadow = shadow
+        self._shadow = shadow
         self._next_id = itertools.count(1)
         for payee in mandate.payees:  # the saved payee registry is trusted by definition
             self.tracker.observe(
@@ -176,6 +176,16 @@ class PolicyEnforcementPoint:
             "mandate_revoked", {"mandate": self._mandate_ref(), "by": by}, self.clock()
         )
 
+    @property
+    def shadow(self) -> bool:
+        """In shadow mode every side-effecting call is recorded and none is executed."""
+        return self._shadow
+
+    def set_shadow(self, on: bool, by: str) -> None:
+        """Switch shadow mode. It changes what executes, so it is audited, like revocation."""
+        self._shadow = on
+        self.audit.append("shadow_changed", {"on": on, "by": by}, self.clock())
+
     def _execute(
         self,
         tool: ToolSpec,
@@ -207,12 +217,25 @@ class PolicyEnforcementPoint:
         return ToolOutcome("ok", result)
 
     def _observe(
-        self, name: str, decision: Decision, now: datetime, **context: Any
+        self,
+        name: str,
+        decision: Decision,
+        now: datetime,
+        escalation_id: str | None = None,
+        approver: str | None = None,
     ) -> ToolOutcome:
         """Record what would have happened. Nothing executes and nothing waits for approval."""
         self.audit.append(
             "observed",
-            {"tool": name, "would_be": decision.effect, "shadow": self.shadow, **context},
+            {
+                "tool": name,
+                "would_be": decision.effect,
+                "shadow": self.shadow,
+                "matched": list(decision.matched),
+                "reasons": list(decision.reasons),
+                "escalation_id": escalation_id,
+                "approver": approver,
+            },
             now,
         )
         return ToolOutcome(
@@ -221,9 +244,23 @@ class PolicyEnforcementPoint:
                 "observed",
                 would_be=decision.effect,
                 reasons=list(decision.reasons),
-                message="Shadow run: nothing was executed.",
+                message=self._observed_message(decision),
             ),
         )
+
+    def _observed_message(self, decision: Decision) -> str:
+        """Tell the model why nothing ran: shadow mode, or which clause only observes."""
+        if self.shadow:
+            return "Shadow run: nothing was executed."
+        observing = [
+            c.clause_id
+            for c in self.mandate.clauses
+            if c.clause_id in decision.matched and c.effect is Effect.OBSERVE
+        ]
+        if not observing:  # no clause applied and the mandate's default effect is OBSERVE
+            return "Observed under the mandate's default effect: nothing was executed."
+        noun = "clause" if len(observing) == 1 else "clauses"
+        return f"Observed under {noun} {', '.join(observing)}: nothing was executed."
 
     def _reject(self, name: str, args: Args, reason: str, now: datetime) -> ToolOutcome:
         self.audit.append("rejected", {"tool": name, "args": args, "reason": reason}, now)
