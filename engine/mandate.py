@@ -2,7 +2,7 @@
 
 Semantics (order-independent, like Cedar's forbid-overrides-permit):
 - A clause applies to an action when every condition it states holds.
-- Among the clauses that apply, the most restrictive effect wins: DENY > ASK > ALLOW.
+- Among the clauses that apply, the most restrictive effect wins: DENY > OBSERVE > ASK > ALLOW.
 - If none applies, the mandate's default effect is used, and it can never be ALLOW (fail-safe).
 """
 
@@ -12,16 +12,23 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from engine.grade import Grade
 from engine.provenance import normalize
 
 
 class Effect(StrEnum):
     ALLOW = "allow"  # the agent may act on its own
     ASK = "ask"  # a human must approve first
+    OBSERVE = "observe"  # shadow run: record what would happen, never execute
     DENY = "deny"  # never, not even with approval
 
 
-RESTRICTIVENESS: dict[Effect, int] = {Effect.ALLOW: 0, Effect.ASK: 1, Effect.DENY: 2}
+RESTRICTIVENESS: dict[Effect, int] = {
+    Effect.ALLOW: 0,
+    Effect.ASK: 1,
+    Effect.OBSERVE: 2,
+    Effect.DENY: 3,
+}
 
 
 class Payee(BaseModel):
@@ -48,6 +55,9 @@ class Clause(BaseModel):
     period_cap_minor: int | None = Field(default=None, gt=0)
     max_count_per_period: int | None = Field(default=None, gt=0)
     period_days: int = Field(default=30, gt=0)
+    min_rate_bps: int | None = Field(default=None, ge=0)
+    max_rate_bps: int | None = Field(default=None, ge=0)
+    min_grade: Grade | None = None
     trusted_args: frozenset[str] = frozenset()
 
     @model_validator(mode="after")

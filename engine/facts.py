@@ -8,6 +8,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from engine.grade import Grade
+
 
 class ActionFacts(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -19,6 +21,8 @@ class ActionFacts(BaseModel):
     counterparty_name: str | None = None
     amount_minor: int | None = None
     currency: str | None = None
+    rate_bps: int | None = None  # annual interest rate in basis points (450 = 4.50%)
+    evidence: dict[str, Grade] = Field(default_factory=dict)  # evidence name -> grade
     traced_args: dict[str, str] = Field(default_factory=dict)  # arg name -> value to trace
 
 

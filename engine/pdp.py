@@ -3,8 +3,10 @@ decision. It explains every clause it looked at, so an escalation card can say w
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 
 from engine.facts import ActionFacts
+from engine.grade import rank
 from engine.history import ActionHistory
 from engine.mandate import RESTRICTIVENESS, Clause, Effect, Mandate
 from engine.money import format_minor
@@ -58,6 +60,34 @@ def _out_of_scope(clause: Clause, facts: ActionFacts) -> str | None:
     return None
 
 
+def _pct(bps: int) -> str:
+    return f"{Decimal(bps) / 100:.2f}%"
+
+
+def _rate_why_not(clause: Clause, facts: ActionFacts) -> str | None:
+    if clause.min_rate_bps is None and clause.max_rate_bps is None:
+        return None
+    if facts.rate_bps is None:
+        return "the action has no interest rate"
+    if clause.min_rate_bps is not None and facts.rate_bps < clause.min_rate_bps:
+        return f"rate {_pct(facts.rate_bps)} is below {_pct(clause.min_rate_bps)}"
+    if clause.max_rate_bps is not None and facts.rate_bps > clause.max_rate_bps:
+        return f"rate {_pct(facts.rate_bps)} exceeds {_pct(clause.max_rate_bps)}"
+    return None
+
+
+def _grade_why_not(clause: Clause, facts: ActionFacts) -> str | None:
+    if clause.min_grade is None:
+        return None
+    if not facts.evidence:
+        return "the action cites no evidence"
+    weak = sorted(k for k, g in facts.evidence.items() if rank(g) < rank(clause.min_grade))
+    if weak:
+        listed = ", ".join(f"{k} ({facts.evidence[k]})" for k in weak)
+        return f"evidence weaker than {clause.min_grade}: {listed}"
+    return None
+
+
 def _why_not(
     clause: Clause,
     facts: ActionFacts,
@@ -78,6 +108,12 @@ def _why_not(
             return f"amount {format_minor(facts.amount_minor, cur)} is below {format_minor(clause.min_amount_minor, cur)}"
         if clause.max_amount_minor is not None and facts.amount_minor > clause.max_amount_minor:
             return f"amount {format_minor(facts.amount_minor, cur)} exceeds {format_minor(clause.max_amount_minor, cur)}"
+    rate = _rate_why_not(clause, facts)
+    if rate is not None:
+        return rate
+    grade = _grade_why_not(clause, facts)
+    if grade is not None:
+        return grade
     for arg in sorted(clause.trusted_args):
         label = labels.get(arg)
         if label is None or not label.trusted:
