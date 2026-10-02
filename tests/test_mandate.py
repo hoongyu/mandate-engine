@@ -49,6 +49,22 @@ def test_amount_conditions_need_exactly_one_currency() -> None:
         )
 
 
+def test_min_rate_cannot_exceed_max_rate() -> None:
+    def loan_clause(min_rate_bps: int, max_rate_bps: int) -> Clause:
+        return Clause(
+            clause_id="L1",
+            effect=Effect.ALLOW,
+            actions=frozenset({"loan.accept"}),
+            min_rate_bps=min_rate_bps,
+            max_rate_bps=max_rate_bps,
+        )
+
+    loan_clause(300, 450)
+    loan_clause(450, 450)  # an exact rate is a legitimate condition
+    with pytest.raises(ValidationError, match="min_rate_bps must not exceed max_rate_bps"):
+        loan_clause(451, 450)
+
+
 def test_default_effect_cannot_be_allow() -> None:
     with pytest.raises(ValidationError):
         make(default_effect=Effect.ALLOW)

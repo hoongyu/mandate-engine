@@ -108,6 +108,7 @@ def _why_not(
             return f"amount {format_minor(facts.amount_minor, cur)} is below {format_minor(clause.min_amount_minor, cur)}"
         if clause.max_amount_minor is not None and facts.amount_minor > clause.max_amount_minor:
             return f"amount {format_minor(facts.amount_minor, cur)} exceeds {format_minor(clause.max_amount_minor, cur)}"
+    # Rate and grade judge this request only: past actions under the clause still count toward its caps.
     rate = _rate_why_not(clause, facts)
     if rate is not None:
         return rate

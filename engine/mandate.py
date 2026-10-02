@@ -69,6 +69,16 @@ class Clause(BaseModel):
             raise ValueError(f"{self.clause_id}: amount conditions need exactly one currency")
         return self
 
+    @model_validator(mode="after")
+    def _rate_bounds_are_ordered(self) -> Self:
+        if (
+            self.min_rate_bps is not None
+            and self.max_rate_bps is not None
+            and self.min_rate_bps > self.max_rate_bps
+        ):
+            raise ValueError(f"{self.clause_id}: min_rate_bps must not exceed max_rate_bps")
+        return self
+
     @property
     def currency(self) -> str:
         """The single currency of a clause that has amount conditions."""

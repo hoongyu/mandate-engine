@@ -8,6 +8,12 @@ from enum import StrEnum
 
 
 class Grade(StrEnum):
+    """Compare grades only through rank() and weakest(), never with `<` or `>`.
+
+    StrEnum members compare as plain strings, so `<` and `>` order them alphabetically, not by
+    strength: Grade.USER > Grade.SOURCED is True as strings, although SOURCED is the stronger.
+    """
+
     VERIFIED = "verified"  # two independent documents agree, or official market data
     SOURCED = "sourced"  # read from one document, with page and verbatim excerpt
     USER = "user"  # typed in by the principal, unchecked
