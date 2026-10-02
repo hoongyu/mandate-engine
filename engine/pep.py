@@ -1,7 +1,8 @@
 """Policy enforcement point: sits between the LLM's tool calls and their execution.
 
 The LLM proposes, the mandate disposes. Every call is audited; side-effecting calls execute only
-when the policy decision point says ALLOW, or after a human approves an ASK.
+when the policy decision point says ALLOW, or after a human approves an ASK. A call the policy says
+to OBSERVE, and every side-effecting call in shadow mode, is recorded but never executed.
 """
 
 import itertools
@@ -19,7 +20,7 @@ from engine.pdp import Decision, decide
 from engine.provenance import ProvenanceLabel, ProvenanceTracker, Trust
 from engine.tools import Args, ToolSpec
 
-Status = Literal["ok", "pending_approval", "denied", "rejected", "error"]
+Status = Literal["ok", "pending_approval", "denied", "rejected", "error", "observed"]
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,7 @@ class PolicyEnforcementPoint:
         clock: Callable[[], datetime],
         tracker: ProvenanceTracker | None = None,
         history: ActionHistory | None = None,
+        shadow: bool = False,
     ) -> None:
         self.mandate = mandate
         self.tools = tools
@@ -67,6 +69,7 @@ class PolicyEnforcementPoint:
         self.tracker = tracker if tracker is not None else ProvenanceTracker()
         self.history = history if history is not None else ActionHistory()
         self.pending: dict[str, Escalation] = {}
+        self.shadow = shadow
         self._next_id = itertools.count(1)
         for payee in mandate.payees:  # the saved payee registry is trusted by definition
             self.tracker.observe(
@@ -106,6 +109,8 @@ class PolicyEnforcementPoint:
             },
             now,
         )
+        if self.shadow or decision.effect is Effect.OBSERVE:
+            return self._observe(name, decision, now)
         if decision.effect is Effect.ALLOW:
             return self._execute(tool, args, now, facts=facts, decision=decision)
         if decision.effect is Effect.DENY:
@@ -141,6 +146,11 @@ class PolicyEnforcementPoint:
                 now,
             )
             return ToolOutcome("denied", _reply("denied", reasons=list(decision.reasons)))
+        if self.shadow or decision.effect is Effect.OBSERVE:
+            # OBSERVE outranks ASK: a human's yes cannot execute what the policy now only watches.
+            return self._observe(
+                escalation.tool, decision, now, escalation_id=escalation_id, approver=approver
+            )
         self.audit.append("approved", {"escalation_id": escalation_id, "approver": approver}, now)
         return self._execute(
             self.tools[escalation.tool],
@@ -195,6 +205,25 @@ class PolicyEnforcementPoint:
         if facts is not None:
             self.history.record(facts, now)
         return ToolOutcome("ok", result)
+
+    def _observe(
+        self, name: str, decision: Decision, now: datetime, **context: Any
+    ) -> ToolOutcome:
+        """Record what would have happened. Nothing executes and nothing waits for approval."""
+        self.audit.append(
+            "observed",
+            {"tool": name, "would_be": decision.effect, "shadow": self.shadow, **context},
+            now,
+        )
+        return ToolOutcome(
+            "observed",
+            _reply(
+                "observed",
+                would_be=decision.effect,
+                reasons=list(decision.reasons),
+                message="Shadow run: nothing was executed.",
+            ),
+        )
 
     def _reject(self, name: str, args: Args, reason: str, now: datetime) -> ToolOutcome:
         self.audit.append("rejected", {"tool": name, "args": args, "reason": reason}, now)
