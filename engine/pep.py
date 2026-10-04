@@ -132,34 +132,46 @@ class PolicyEnforcementPoint:
         )
 
     def approve(self, escalation_id: str, approver: str) -> ToolOutcome:
+        """A human's yes to a pending action, which is a yes to what was asked, not to what it has since
+        become. So the action is described again from the stored arguments and decided on the facts of
+        now (the stored labels, the history and the mandate as they stand): a consent that lapsed, a
+        grade that fell or an amount that grew since the request is refused here, and what runs is
+        what the policy lets through now."""
         escalation = self.pending.pop(escalation_id)
         now = self.clock()
-        decision = decide(self.mandate, escalation.facts, escalation.labels, self.history, now)
+        tool = self.tools[escalation.tool]
+        describe = tool.describe
+        assert describe is not None  # only a tool with a describe hook is ever escalated
+        try:
+            facts = describe(escalation.args)
+        except ValueError as exc:  # it can no longer be described: the data it rests on is gone or refused
+            return self._refuse_approval(escalation_id, approver, [str(exc)], now)
+        decision = decide(self.mandate, facts, escalation.labels, self.history, now)
         if decision.effect is Effect.DENY:
-            self.audit.append(
-                "approval_refused",
-                {
-                    "escalation_id": escalation_id,
-                    "approver": approver,
-                    "reasons": list(decision.reasons),
-                },
-                now,
-            )
-            return ToolOutcome("denied", _reply("denied", reasons=list(decision.reasons)))
+            return self._refuse_approval(escalation_id, approver, list(decision.reasons), now)
         if self.shadow or decision.effect is Effect.OBSERVE:
             # OBSERVE outranks ASK: a human's yes cannot execute what the policy now only watches.
             return self._observe(
                 escalation.tool, decision, now, escalation_id=escalation_id, approver=approver
             )
-        self.audit.append("approved", {"escalation_id": escalation_id, "approver": approver}, now)
-        return self._execute(
-            self.tools[escalation.tool],
-            escalation.args,
+        self.audit.append(
+            "approved",
+            {"escalation_id": escalation_id, "approver": approver, "facts_changed": facts != escalation.facts},
             now,
-            facts=escalation.facts,
-            decision=decision,
-            approved_by=approver,
         )
+        return self._execute(
+            tool, escalation.args, now, facts=facts, decision=decision, approved_by=approver
+        )
+
+    def _refuse_approval(
+        self, escalation_id: str, approver: str, reasons: list[str], now: datetime
+    ) -> ToolOutcome:
+        self.audit.append(
+            "approval_refused",
+            {"escalation_id": escalation_id, "approver": approver, "reasons": reasons},
+            now,
+        )
+        return ToolOutcome("denied", _reply("denied", reasons=reasons))
 
     def reject(self, escalation_id: str, approver: str) -> None:
         self.pending.pop(escalation_id)
