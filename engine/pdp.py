@@ -57,6 +57,12 @@ def _out_of_scope(clause: Clause, facts: ActionFacts) -> str | None:
         return f"payee category {facts.payee_category!r} is not one of {sorted(clause.payee_categories)}"
     if clause.currencies is not None and facts.currency not in clause.currencies:
         return f"currency {facts.currency!r} is not one of {sorted(clause.currencies)}"
+    # Unknown consent (None) matches neither True nor False: an action that cannot say whether the
+    # owner agreed is never allowed by a clause for consented sharing.
+    if clause.within_consent is not None and facts.within_consent is not clause.within_consent:
+        if facts.within_consent is None:
+            return "the action does not say whether the data owner's consent covers it"
+        return "the data owner's consent covers it" if facts.within_consent else "the data owner's consent does not cover it"
     return None
 
 

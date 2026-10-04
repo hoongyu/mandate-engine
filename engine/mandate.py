@@ -58,6 +58,7 @@ class Clause(BaseModel):
     min_rate_bps: int | None = Field(default=None, ge=0)
     max_rate_bps: int | None = Field(default=None, ge=0)
     min_grade: Grade | None = None
+    within_consent: bool | None = None  # applies only to actions inside (True) or outside (False) the owner's consent
     trusted_args: frozenset[str] = frozenset()
 
     @model_validator(mode="after")

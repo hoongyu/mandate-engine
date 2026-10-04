@@ -23,6 +23,8 @@ class ActionFacts(BaseModel):
     currency: str | None = None
     rate_bps: int | None = Field(default=None, ge=0)  # annual interest rate in basis points (450 = 4.50%)
     evidence: dict[str, Grade] = Field(default_factory=dict)  # evidence name -> grade
+    # Whether the data owner's consent covers this action; None when the action shares no one's data.
+    within_consent: bool | None = None
     traced_args: dict[str, str] = Field(default_factory=dict)  # arg name -> value to trace
 
 
