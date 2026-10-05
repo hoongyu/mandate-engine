@@ -120,12 +120,14 @@ class PolicyEnforcementPoint:
         self.audit.append(
             "escalation", {"escalation_id": escalation.escalation_id, "tool": name}, now
         )
+        approver = self.mandate.approver
         return ToolOutcome(
             "pending_approval",
             _reply(
                 "pending_approval",
                 escalation_id=escalation.escalation_id,
-                message="The user must approve this first. Do not retry or split it; tell the user it is waiting for their approval.",
+                message=f"{approver[:1].upper()}{approver[1:]} must approve this first. Do not retry or split it; "
+                "tell the user it is waiting for that approval.",
                 reasons=list(decision.reasons),
             ),
             escalation.escalation_id,

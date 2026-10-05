@@ -100,6 +100,7 @@ class Mandate(BaseModel):
     payees: tuple[Payee, ...]
     clauses: tuple[Clause, ...]
     default_effect: Effect = Effect.ASK
+    approver: str = "the user"  # who answers an ASK: the user the agent works for, or a body the mandate names
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:
