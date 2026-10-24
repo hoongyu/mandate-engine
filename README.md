@@ -92,4 +92,9 @@ uv run pytest
 
 ## License
 
-Apache License 2.0. See `LICENSE` and `NOTICE`.
+Dual-licensed under either of, at your option:
+
+- MIT License (`LICENSE-MIT`)
+- Apache License 2.0 (`LICENSE-APACHE` and `NOTICE`)
+
+Versions up to 0.1.0 were released under Apache-2.0 only.

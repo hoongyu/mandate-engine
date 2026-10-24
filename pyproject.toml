@@ -1,10 +1,10 @@
 [project]
 name = "mandate-engine"
-version = "0.1.0"
+version = "0.1.1"
 description = "The agent proposes, the mandate decides: a policy layer outside the model for AI agents that move money, with provenance tracing and a hash-chained audit log."
 readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE", "NOTICE"]
 authors = [{ name = "hoongyu" }]
 requires-python = ">=3.12"
 dependencies = ["pydantic>=2.9"]
